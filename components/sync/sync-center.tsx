@@ -88,7 +88,7 @@ function SyncBody({ onClose }: { onClose?: () => void }) {
       <div className="border-t-2 border-ink/15 px-3 py-2">
         <p className="mb-2 text-[11px] font-semibold text-ink-2">
           {!online
-            ? "Sin internet. Se envían solas en cuanto vuelva la conexión."
+            ? "Sin conexión con el servidor. Se reintentan solas cuando responda."
             : syncing
               ? "Enviando…"
               : "Se reintenta solo cada 15 segundos."}

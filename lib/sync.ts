@@ -90,6 +90,16 @@ export function useSyncState(): SyncState {
   return useSyncExternalStore(subscribeSync, getState, getState);
 }
 
+/** Una respuesta exitosa del servidor confirma que la app está conectada. */
+export function markConnectionOnline() {
+  update({ online: true });
+}
+
+/** Una petición fallida corrige `navigator.onLine`, que puede seguir en true. */
+export function markConnectionOffline() {
+  update({ online: false });
+}
+
 /**
  * Envía todas las ventas guardadas. Devuelve cuántas salieron y cuántas
  * quedaron rechazadas. Nunca corre dos veces a la vez.
@@ -122,10 +132,12 @@ async function runFlush(): Promise<SyncOutcome> {
   update({ syncing: true, errors: {} });
 
   const errors: Record<string, string> = {};
+  let serverResponded = false;
 
   for (const sale of queue) {
     try {
       const result = await registerSale(sale);
+      serverResponded = true;
       if (result.ok) {
         removeFromOutbox(sale.clientId);
         outcome.sent += 1;
@@ -144,7 +156,9 @@ async function runFlush(): Promise<SyncOutcome> {
   update({
     pending: readOutbox(),
     syncing: false,
-    online: typeof navigator === "undefined" ? true : navigator.onLine,
+    online: outcome.offline
+      ? false
+      : serverResponded || (typeof navigator !== "undefined" && navigator.onLine),
     lastAttemptAt: Date.now(),
     errors,
   });

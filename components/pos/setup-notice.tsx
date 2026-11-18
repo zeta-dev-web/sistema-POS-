@@ -6,7 +6,11 @@ const STEPS = [
   { command: "pnpm db:push", note: "Crea las tablas." },
   {
     command: "pnpm db:seed",
-    note: "Crea ALMACEN con un administrador y un vendedor, sin productos.",
+    note: "Crea ALMACEN con un administrador y un vendedor.",
+  },
+  {
+    command: "pnpm db:seed:products",
+    note: "Opcional: carga 50 productos de ejemplo.",
   },
 ];
 

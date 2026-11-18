@@ -38,6 +38,8 @@ Copy-Item .env.example .env # en PowerShell
 # 2. Tablas y datos de ejemplo
 pnpm db:push
 pnpm db:seed
+# Opcional: catálogo de 50 productos de ejemplo
+pnpm db:seed:products
 
 # 3. A correr
 pnpm dev
@@ -171,6 +173,7 @@ scripts/
 prisma/
   schema.prisma       Tenant, User, Product, Sale, SaleItem, StockMovement, CashSession
   seed.ts             ALMACEN + administrador y vendedor, sin productos
+  seed-products.sql   Catálogo opcional de 50 productos de ejemplo
 ```
 
 ## Verificación hecha

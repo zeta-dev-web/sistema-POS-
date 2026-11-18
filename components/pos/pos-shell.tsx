@@ -7,7 +7,7 @@ import { AppHeader } from "@/components/app-header";
 import { longDate, money, shortDate } from "@/lib/format";
 import { formatQuantity, fromCents, lineTotalCents, toCents } from "@/lib/money";
 import { enqueueSale } from "@/lib/outbox";
-import { useSyncState } from "@/lib/sync";
+import { markConnectionOffline, markConnectionOnline, useSyncState } from "@/lib/sync";
 import type { CartLine, PaymentMethod, ProductDTO, SalePayload, SaleResult, TenantDTO } from "@/lib/types";
 
 import {
@@ -84,7 +84,7 @@ function ShiftInfo({
         )}
       >
         <span aria-hidden className="h-2 w-2 rounded-full bg-current" />
-        {online ? "CONECTADO" : "SIN INTERNET"}
+        {online ? "CONECTADO" : "SIN CONEXIÓN"}
       </span>
     </>
   );
@@ -267,13 +267,17 @@ export function PosShell({
 
   async function sendSale(payload: SalePayload): Promise<SaleResult> {
     if (!navigator.onLine) {
+      markConnectionOffline();
       enqueueSale(payload);
       return { ok: false, queued: true, error: "Sin conexión" };
     }
     try {
-      return await registerSale(payload);
+      const result = await registerSale(payload);
+      markConnectionOnline();
+      return result;
     } catch (cause) {
       console.error(cause);
+      markConnectionOffline();
       enqueueSale(payload);
       return { ok: false, queued: true, error: "Sin conexión" };
     }

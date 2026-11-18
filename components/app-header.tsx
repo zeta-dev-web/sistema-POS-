@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { useSyncState } from "@/lib/sync";
+
 import { StockAlertsBell } from "./stock/stock-alerts-bell";
 import { SyncCenter } from "./sync/sync-center";
 import { cx } from "./pos/ui";
@@ -26,6 +28,7 @@ export function AppHeader({
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { online } = useSyncState();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -98,6 +101,18 @@ export function AppHeader({
           </div>
 
           <StockAlertsBell />
+
+          <span
+            role="status"
+            aria-label={`Estado de conexión: ${online ? "conectado" : "sin conexión"}`}
+            title={online ? "Conectado" : "Sin conexión"}
+            className="flex h-10 w-3 shrink-0 items-center justify-center md:hidden"
+          >
+            <span
+              aria-hidden
+              className={cx("h-2.5 w-2.5 rounded-full", online ? "bg-ok" : "bg-danger")}
+            />
+          </span>
 
           <button
             type="button"
