@@ -1,0 +1,219 @@
+// Esquema del POS de almacén. Subconjunto del plan (PLAN-DESARROLLO.md §6)
+// con el foco puesto en el cobro por transferencia con confirmación manual.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  CASHIER
+}
+
+enum Unit {
+  UNIT
+  KG
+}
+
+enum SaleStatus {
+  OPEN
+  PAID
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  MP_QR
+  CARD
+}
+
+/// Estado del cruce contra el extracto de Mercado Pago (proceso nocturno).
+enum Reconciliation {
+  PENDING
+  MATCHED
+  UNMATCHED
+}
+
+model Tenant {
+  id            String   @id @default(cuid())
+  name          String
+  cuit          String?
+  /// Datos de cobro que se muestran en pantalla al cajero.
+  cvu           String?
+  alias         String?
+  holderName    String?
+  mpUserId      String?
+  mpAccessToken String? // cifrado en reposo (AES-GCM)
+  mpMode        String   @default("sandbox")
+  /// Secuencia de tickets por comercio. Se incrementa dentro de la transacción.
+  saleCounter   Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  users        User[]
+  products     Product[]
+  sales        Sale[]
+  movements    StockMovement[]
+  cashSessions CashSession[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  name         String
+  email        String
+  passwordHash String?
+  role         Role     @default(CASHIER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  sales          Sale[]        @relation("SaleCashier")
+  confirmations  Sale[]        @relation("SaleConfirmer")
+  sessionsOpened CashSession[] @relation("SessionOpener")
+  sessionsClosed CashSession[] @relation("SessionCloser")
+
+  @@unique([tenantId, email])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  sku         String?
+  barcode     String?
+  name        String
+  unit        Unit     @default(UNIT)
+  description String?
+  price       Decimal  @db.Decimal(12, 2)
+  stock       Decimal  @default(0) @db.Decimal(12, 3)
+  minStock    Decimal  @default(0) @db.Decimal(12, 3)
+  active      Boolean  @default(true)
+  updatedAt   DateTime @updatedAt // cursor para sync offline
+
+  items SaleItem[]
+
+  @@unique([tenantId, barcode])
+  @@index([tenantId, name])
+  @@index([tenantId, updatedAt])
+}
+
+model Sale {
+  id String @id @default(cuid())
+
+  /// UUID generado en el navegador. Hace idempotente el reintento offline:
+  /// si la venta ya existe con este clientId, no se duplica.
+  clientId String? @unique
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId String
+  user   User   @relation("SaleCashier", fields: [userId], references: [id])
+
+  /// Turno de caja al que pertenece la venta. Se abre con la primera venta.
+  sessionId String?
+  session   CashSession? @relation(fields: [sessionId], references: [id])
+
+  /// Número de ticket visible, correlativo por comercio.
+  number        Int?
+  status        SaleStatus    @default(OPEN)
+  paymentMethod PaymentMethod @default(CASH)
+
+  subtotal Decimal @db.Decimal(12, 2)
+  discount Decimal @default(0) @db.Decimal(12, 2)
+  total    Decimal @db.Decimal(12, 2)
+
+  /// Solo efectivo: sirve para el cierre de caja.
+  cashReceived Decimal? @db.Decimal(12, 2)
+  changeGiven  Decimal? @db.Decimal(12, 2)
+
+  /// Solo transferencia: datos del comprobante que vio el cajero.
+  transferRef         String?
+  transferConfirmedBy String?
+  transferConfirmedAt DateTime?
+  confirmedBy         User?     @relation("SaleConfirmer", fields: [transferConfirmedBy], references: [id])
+
+  reconciliation Reconciliation @default(PENDING)
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  /// null = creada offline, pendiente de sincronizar.
+  syncedAt  DateTime?
+
+  items SaleItem[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, paidAt])
+  @@index([tenantId, status, paymentMethod])
+}
+
+model SaleItem {
+  id          String   @id @default(cuid())
+  saleId      String
+  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  description String // snapshot del nombre
+  quantity    Decimal  @db.Decimal(12, 3)
+  unitPrice   Decimal  @db.Decimal(12, 2) // snapshot del precio
+  total       Decimal  @db.Decimal(12, 2)
+
+  @@index([saleId])
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  productId String
+  delta     Decimal  @db.Decimal(12, 3)
+  reason    String // SALE | ALTA | MANUAL | ADJUSTMENT
+  note      String?
+  saleId    String?
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, productId, createdAt])
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+/// Turno de caja. Se abre solo con la primera venta del día y se cierra a mano
+/// desde Reportes, que es cuando el comerciante hace el arqueo.
+model CashSession {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  openedAt     DateTime @default(now())
+  openedBy     String
+  openedByUser User     @relation("SessionOpener", fields: [openedBy], references: [id])
+
+  closedAt     DateTime?
+  closedBy     String?
+  closedByUser User?     @relation("SessionCloser", fields: [closedBy], references: [id])
+
+  status CashSessionStatus @default(OPEN)
+
+  /// Totales congelados al cerrar. Mientras está abierta se calculan en vivo.
+  openingCash   Decimal @default(0) @db.Decimal(12, 2)
+  totalCash     Decimal @default(0) @db.Decimal(12, 2)
+  totalTransfer Decimal @default(0) @db.Decimal(12, 2)
+  saleCount     Int     @default(0)
+
+  notes String?
+  sales Sale[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, openedAt])
+}

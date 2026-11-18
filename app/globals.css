@@ -1,0 +1,222 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f7f2e7;
+  --color-paper-2: #efe6d3;
+  --color-ink: #17130d;
+  --color-ink-2: #4b4438;
+  --color-cash: #9a4f06;
+  --color-transfer: #1c4ed8;
+  --color-ok: #14653f;
+  --color-danger: #a51d1d;
+
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+@layer base {
+  html {
+    /* Base grande a propósito: el usuario es una persona mayor. */
+    font-size: 18px;
+    -webkit-text-size-adjust: 100%;
+    /* Reserva el lugar de la barra de scroll: el ancho no cambia entre
+       pantallas que scrollean y las que no (la navegación no se corre). */
+    scrollbar-gutter: stable;
+  }
+
+  /* En el celular la pantalla es más chica: se achica un poco la base para
+     que entren más productos del carrito, sin perder legibilidad. */
+  @media (max-width: 767px) {
+    html {
+      font-size: 16px;
+    }
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    overscroll-behavior: none;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: #ffdf7a;
+  }
+}
+
+/* Textura tenue de papel cuadriculado, no compite con el contenido. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(23, 19, 13, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(23, 19, 13, 0.045) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+@layer components {
+  .chunky {
+    border: 3px solid var(--color-ink);
+    box-shadow: 5px 5px 0 var(--color-ink);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    border: 3px solid var(--color-ink);
+    border-radius: 1rem;
+    padding: 1rem 1.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+    box-shadow: 4px 4px 0 var(--color-ink);
+    transition:
+      transform 60ms ease,
+      box-shadow 60ms ease,
+      background-color 120ms ease;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 var(--color-ink);
+  }
+
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+    box-shadow: 2px 2px 0 var(--color-ink);
+  }
+
+  .btn:focus-visible {
+    outline: 4px solid var(--color-transfer);
+    outline-offset: 3px;
+  }
+
+  .btn-dark {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+
+  .btn-cash {
+    background: var(--color-cash);
+    color: #fff;
+  }
+
+  .btn-transfer {
+    background: var(--color-transfer);
+    color: #fff;
+  }
+
+  .btn-ok {
+    background: var(--color-ok);
+    color: #fff;
+  }
+
+  .btn-danger {
+    background: var(--color-danger);
+    color: #fff;
+  }
+
+  .btn-ghost {
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .grid-paper {
+    background-image:
+      linear-gradient(to right, rgba(23, 19, 13, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(23, 19, 13, 0.06) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sheet-in {
+  animation: sheet-in 180ms ease-out both;
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pop-in {
+  animation: pop-in 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-in,
+  .pop-in {
+    animation: none;
+  }
+}
+
+/* Impresión: solo el comprobante. */
+@media print {
+  body::before {
+    display: none;
+  }
+  body {
+    background: #fff;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
