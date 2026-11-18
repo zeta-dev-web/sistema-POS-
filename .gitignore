@@ -11,3 +11,4 @@ Thumbs.db
 next-env.d.ts
 app/generated/
 tsconfig.tsbuildinfo
+/PLAN-DESARROLLO.md
